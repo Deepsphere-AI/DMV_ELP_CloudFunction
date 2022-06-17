@@ -16,6 +16,7 @@ import boto3
 import os
 import datetime
 
+
 def ELP_Validation(request):
     """Responds to any HTTP request.
     """
