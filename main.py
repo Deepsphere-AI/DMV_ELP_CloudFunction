@@ -15,6 +15,7 @@ from io import StringIO
 import boto3
 import os
 import datetime
+import traceback
 
 
 def ELP_Validation(request):
@@ -115,6 +116,7 @@ def ELP_Validation(request):
         
     except BaseException as e:
         print('In Error Block - '+str(e))
+        print(traceback.format_exc())
         return {'Error Message':str(e)}
 
 
