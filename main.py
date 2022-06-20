@@ -10,7 +10,7 @@ import time
 import json
 import gcsfs
 import h5py
-from google.cloud import storage,bigquery
+from google.cloud import storage,bigquery,secretmanager
 from io import StringIO 
 import boto3
 import os
@@ -410,11 +410,32 @@ def Process_API_Response(vAR_api_response,vAR_request_date,vAR_order_date,vAR_co
 
 
 def Upload_Response_To_S3(vAR_result,vAR_request_id):
-    
-    vAR_bucket_name = os.environ['BUCKET_NAME']
+    aws_access_key_id,aws_secret_access_key,vAR_bucket_name = get_gcp_secret()
     vAR_csv_buffer = StringIO()
     vAR_result.to_csv(vAR_csv_buffer)
-    vAR_s3_resource = boto3.resource('s3',aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+    vAR_s3_resource = boto3.resource('s3',aws_access_key_id=aws_access_key_id,aws_secret_access_key=aws_secret_access_key)
     vAR_utc_time = datetime.datetime.utcnow()
     vAR_s3_resource.Object(vAR_bucket_name, 'batch/simpligov/new/ELP_Project_Response/'+vAR_utc_time.strftime('%Y%m%d')+'/ELP_Response_'+str(vAR_request_id)+'_'+vAR_utc_time.strftime('%H%M%S')+'.csv').put(Body=vAR_csv_buffer.getvalue())
     print('API Response successfully saved into S3 bucket')
+    
+    
+def get_gcp_secret():
+
+    # Create the Secret Manager client.
+    client = secretmanager.SecretManagerServiceClient()
+    
+    # Build the resource name of the secret version.
+    aws_access_key_name =  'projects/elp-2022-352222/secrets/ACCESS_KEY/versions/1'
+    aws_secret_key_name =  'projects/elp-2022-352222/secrets/SECRET_KEY/versions/1'
+    bucket_name =  'projects/elp-2022-352222/secrets/BUCKET_NAME/versions/1'
+    
+    # Access the secret version.
+    aws_access_key_response = client.access_secret_version(request={"name": aws_access_key_name})
+    aws_secret_key_response = client.access_secret_version(request={"name": aws_secret_key_name})
+    bucket_name_response = client.access_secret_version(request={"name": bucket_name})
+    # WARNING: Do not print the secret in a production environment - this
+    # snippet is showing how to access the secret material.
+    aws_access_key = aws_access_key_response.payload.data.decode("UTF-8")
+    aws_secret_key = aws_secret_key_response.payload.data.decode("UTF-8")
+    bucket_name_value = bucket_name_response.payload.data.decode("UTF-8")
+    return aws_access_key,aws_secret_key,bucket_name_value
